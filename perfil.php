@@ -32,6 +32,7 @@ require_once 'views/header.php';
                 <?php 
                     if($_GET['error'] == 'dni_invalido') echo "El formato del DNI no es válido o la letra es incorrecta.";
                     elseif($_GET['error'] == 'datos_duplicados') echo "El DNI o el Email ya están registrados por otro usuario.";
+                    elseif($_GET['error'] == 'cuenta_protegida') echo "Por motivos de seguridad, esta cuenta demo está protegida y no puede modificarse ni darse de baja.";
                     else echo "Ha ocurrido un error al procesar los datos.";
                 ?>
             </div>

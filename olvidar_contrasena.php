@@ -9,19 +9,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $email = trim($_POST['email']);
     $nueva_pass = trim($_POST['password']);
 
-    // Comprobar si existe el usuario
-    $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE email = :email");
-    $stmt->execute(['email' => $email]);
-    
-    if ($stmt->fetch()) {
-        $pass_hash = password_hash($nueva_pass, PASSWORD_DEFAULT);
-        
-        $sql = "UPDATE usuarios SET password = :pass WHERE email = :email";
-        $pdo->prepare($sql)->execute(['pass' => $pass_hash, 'email' => $email]);
-        
-        $mensaje = "Contraseña cambiada correctamente.";
+    // Cuentas del sistema protegidas en la demostración
+    $cuentas_protegidas = ['admin@admin.com', 'cliente@cliente.com', 'empleado@tienda.com'];
+    if (in_array(strtolower($email), $cuentas_protegidas)) {
+        $error = "Por motivos de seguridad, las cuentas del sistema están protegidas y su contraseña no puede modificarse.";
     } else {
-        $error = "No existe ninguna cuenta con ese email.";
+        // Comprobar si existe el usuario
+        $stmt = $pdo->prepare("SELECT id, rol FROM usuarios WHERE email = :email");
+        $stmt->execute(['email' => $email]);
+        $user = $stmt->fetch();
+        
+        if ($user) {
+            if ($user['rol'] == 'admin') {
+                $error = "La cuenta de administrador está protegida y no permite restablecimiento público.";
+            } else {
+                $pass_hash = password_hash($nueva_pass, PASSWORD_DEFAULT);
+                $sql = "UPDATE usuarios SET password = :pass WHERE email = :email";
+                $pdo->prepare($sql)->execute(['pass' => $pass_hash, 'email' => $email]);
+                $mensaje = "Contraseña cambiada correctamente.";
+            }
+        } else {
+            $error = "No existe ninguna cuenta con ese email.";
+        }
     }
 }
 

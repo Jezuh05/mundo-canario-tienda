@@ -370,6 +370,14 @@ if ($accion == 'actualizar_perfil') {
     $dni = strtoupper(trim($_POST['dni']));
     $email = trim($_POST['email']);
     
+    // Proteger cuentas del sistema para evitar que trolls modifiquen el email de demo
+    if (isset($_SESSION['email']) && in_array(strtolower($_SESSION['email']), ['cliente@cliente.com', 'admin@admin.com'])) {
+        if (strtolower($email) != strtolower($_SESSION['email'])) {
+            header("Location: ../perfil.php?error=cuenta_protegida");
+            exit;
+        }
+    }
+    
     if (!validar_dni($dni)) {
         header("Location: ../perfil.php?error=dni_invalido");
         exit;
@@ -400,6 +408,13 @@ if ($accion == 'actualizar_perfil') {
 // Baja de cuenta por parte del cliente
 if ($accion == 'baja_usuario_propia') {
     if (!isset($_SESSION['id'])) exit;
+
+    // Proteger cuentas del sistema y demo de desactivaciones maliciosas
+    if (isset($_SESSION['email']) && in_array(strtolower($_SESSION['email']), ['cliente@cliente.com', 'admin@admin.com'])) {
+        header("Location: ../perfil.php?error=cuenta_protegida");
+        exit;
+    }
+
     $pdo->prepare("UPDATE usuarios SET activo = 0 WHERE id = :id")->execute(['id' => $_SESSION['id']]);
     session_destroy();
     header("Location: ../index.php?mensaje=cuenta_desactivada");

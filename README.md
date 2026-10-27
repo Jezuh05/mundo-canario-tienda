@@ -44,19 +44,22 @@ Panel de control para consultar los pedidos entrantes y actualizar su estado de 
 - Entorno de producción: **Alwaysdata Cloud (SSL / HTTPS)**
 - Entorno local: **XAMPP / Apache**
 
-## Cuentas de prueba (válidas en local y en la demo online)
+## Cuentas de prueba
 
-Para probar las funcionalidades de los distintos roles:
+### Demo Online en Producción
+Para explorar la plataforma en vivo de forma segura sin alterar la integridad del catálogo:
 
-- **Administrador:**  
-  Email: `admin@admin.com`  
-  Contraseña: `admin123`  
-  *(Acceso completo a Dashboard, gestión de inventario, pedidos, usuarios e informes financieros)*
+- **Cuenta de Cliente:**  
+  - Email: `cliente@cliente.com`  
+  - Contraseña: `1234`  
+  - *(Permite navegar por el catálogo, añadir productos a la cesta interactiva, gestionar perfil y realizar seguimiento de pedidos)*
 
-- **Cliente:**  
-  Email: `cliente@cliente.com`  
-  Contraseña: `1234`  
-  *(Acceso a catálogo, cesta de compra interactiva y seguimiento de mis pedidos)*
+> 🔒 *Nota de seguridad:* El panel de administración en la demo online está restringido a credenciales privadas del administrador para evitar vandalismo o alteraciones no autorizadas en el catálogo y base de datos en vivo. Para pruebas de administración completa con rol Admin, se puede clonar y ejecutar en local con XAMPP.
+
+### Entorno Local (XAMPP)
+En entorno local se tiene acceso a todos los roles de prueba:
+- **Administrador:** `admin@admin.com` / `admin123`
+- **Cliente:** `cliente@cliente.com` / `1234`
 
 ## Pasos para probarlo en local
 
