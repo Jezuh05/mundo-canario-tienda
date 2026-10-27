@@ -8,16 +8,26 @@ $is_alwaysdata = (
     is_dir('/home/mundocanario')
 );
 
+// Cargar configuración confidencial fuera del control de versiones (servidor Alwaysdata o local)
+$external_server_config = '/home/mundocanario/db_config.php';
+$local_secret_config    = __DIR__ . '/db.local.php';
+
+if (file_exists($external_server_config)) {
+    require_once $external_server_config;
+} elseif (file_exists($local_secret_config)) {
+    require_once $local_secret_config;
+}
+
 if ($is_alwaysdata) {
-    $host = 'mysql-mundocanario.alwaysdata.net';
-    $db   = 'mundocanario_tienda';
-    $user = 'mundocanario';
-    $pass = 'MundoCanario2027*!';
+    $host = defined('ALWAYSDATA_DB_HOST') ? ALWAYSDATA_DB_HOST : (getenv('DB_HOST') ?: 'mysql-mundocanario.alwaysdata.net');
+    $db   = defined('ALWAYSDATA_DB_NAME') ? ALWAYSDATA_DB_NAME : (getenv('DB_NAME') ?: 'mundocanario_tienda');
+    $user = defined('ALWAYSDATA_DB_USER') ? ALWAYSDATA_DB_USER : (getenv('DB_USER') ?: 'mundocanario');
+    $pass = defined('ALWAYSDATA_DB_PASS') ? ALWAYSDATA_DB_PASS : (getenv('DB_PASS') ?: '');
 } else {
-    $host = 'localhost';
-    $db   = 'tienda_online'; 
-    $user = 'root';         
-    $pass = '';             
+    $host = defined('LOCAL_DB_HOST') ? LOCAL_DB_HOST : (getenv('DB_HOST') ?: 'localhost');
+    $db   = defined('LOCAL_DB_NAME') ? LOCAL_DB_NAME : (getenv('DB_NAME') ?: 'tienda_online'); 
+    $user = defined('LOCAL_DB_USER') ? LOCAL_DB_USER : (getenv('DB_USER') ?: 'root');         
+    $pass = defined('LOCAL_DB_PASS') ? LOCAL_DB_PASS : (getenv('DB_PASS') ?: '');             
 }
 
 $charset = 'utf8mb4';
@@ -32,6 +42,7 @@ $options = [
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (\PDOException $e) {
-    throw new \PDOException($e->getMessage(), (int)$e->getCode());
+    error_log("Error de conexión a la base de datos: " . $e->getMessage());
+    die("Error al conectar con la base de datos del sistema. Por favor, inténtelo de nuevo más tarde.");
 }
 ?>

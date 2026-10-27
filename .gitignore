@@ -5,3 +5,9 @@ Thumbs.db
 # Entorno de desarrollo
 .vscode/
 .idea/
+
+# Credenciales privadas y configuración de base de datos local
+/config/db.local.php
+/config/db.credentials.php
+.env
+.env.*
