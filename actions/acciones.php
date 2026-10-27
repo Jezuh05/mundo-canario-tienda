@@ -9,6 +9,41 @@ if (isset($_POST['accion'])) {
     $accion = $_GET['accion'];
 }
 
+/**
+ * Valida y procesa la subida de imágenes de productos de forma segura.
+ * Aplica lista blanca de extensiones y verificación de tipo MIME real para mitigar RCE.
+ */
+function procesar_subida_imagen($file, $destino = '../assets/img/') {
+    if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
+        return null;
+    }
+
+    $extensiones_permitidas = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+    if (!in_array($ext, $extensiones_permitidas)) {
+        return null;
+    }
+
+    // Comprobación de tipo MIME real
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    $mimes_permitidos = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!in_array($mime, $mimes_permitidos)) {
+        return null;
+    }
+
+    // Generar nombre pseudoaleatorio criptográficamente seguro
+    $nombre_seguro = bin2hex(random_bytes(10)) . '_' . time() . '.' . $ext;
+    if (move_uploaded_file($file['tmp_name'], $destino . $nombre_seguro)) {
+        return $nombre_seguro;
+    }
+
+    return null;
+}
+
 // Añadir producto al carrito
 if ($accion == 'anadir') {
     $id = $_POST['producto_id'];
@@ -125,6 +160,9 @@ if ($accion == 'tramitar') {
     $direccion = $_POST['direccion'] ?? 'No especificada';
 
     try {
+        // Iniciar transacción para garantizar consistencia ACID
+        $pdo->beginTransaction();
+
         // Guardar el pedido en la base de datos
         $sql_p = "INSERT INTO pedidos (usuario_id, provincia, localidad, direccion, coste, estado, fecha, hora) 
                   VALUES (:uid, :prov, :loc, :dir, :coste, 'Pendiente', CURDATE(), CURTIME())";
@@ -139,15 +177,16 @@ if ($accion == 'tramitar') {
         $pedido_id = $pdo->lastInsertId();
 
         // Guardar líneas del pedido
+        $stmt_l = $pdo->prepare("INSERT INTO lineas_pedidos (pedido_id, producto_id, unidades) VALUES (:pid, :proid, :uni)");
         foreach ($_SESSION['carrito'] as $prod) {
-            $sql_l = "INSERT INTO lineas_pedidos (pedido_id, producto_id, unidades) 
-                      VALUES (:pid, :proid, :uni)";
-            $pdo->prepare($sql_l)->execute([
+            $stmt_l->execute([
                 'pid'   => $pedido_id,
                 'proid' => $prod['id'],
                 'uni'   => $prod['unidades']
             ]);
         }
+
+        $pdo->commit();
 
         // Pasarela de pago con Stripe
         require_once '../config/stripe_config.php';
@@ -190,6 +229,9 @@ if ($accion == 'tramitar') {
         exit;
 
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         die("Error en el proceso: " . $e->getMessage());
     }
 }
@@ -264,9 +306,8 @@ if ($accion == 'guardar_producto') {
     if ($_SESSION['rol'] != 'admin' && $_SESSION['rol'] != 'empleado') exit;
     
     $foto = null;
-    if (isset($_FILES['imagen']) && $_FILES['imagen']['name']) {
-        $foto = time() . "_" . $_FILES['imagen']['name'];
-        move_uploaded_file($_FILES['imagen']['tmp_name'], "../assets/img/" . $foto);
+    if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
+        $foto = procesar_subida_imagen($_FILES['imagen']);
     }
 
     $sql = "INSERT INTO productos (categoria_id, nombre, descripcion, precio, stock, imagen, fecha) VALUES (:cat, :nom, :desc, :pre, :stock, :img, CURDATE())";
@@ -287,11 +328,12 @@ if ($accion == 'editar_producto') {
         'pre' => $_POST['precio'], 'stock' => $_POST['stock'], 'id' => $_POST['id']
     ];
 
-    if (isset($_FILES['imagen']) && $_FILES['imagen']['name']) {
-        $foto = time() . "_" . $_FILES['imagen']['name'];
-        move_uploaded_file($_FILES['imagen']['tmp_name'], "../assets/img/" . $foto);
-        $sql = "UPDATE productos SET categoria_id=:cat, nombre=:nom, descripcion=:desc, precio=:pre, stock=:stock, imagen=:img WHERE id=:id";
-        $params['img'] = $foto;
+    if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
+        $nueva_foto = procesar_subida_imagen($_FILES['imagen']);
+        if ($nueva_foto) {
+            $sql = "UPDATE productos SET categoria_id=:cat, nombre=:nom, descripcion=:desc, precio=:pre, stock=:stock, imagen=:img WHERE id=:id";
+            $params['img'] = $nueva_foto;
+        }
     }
 
     $stmt = $pdo->prepare($sql);
