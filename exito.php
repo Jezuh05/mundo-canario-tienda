@@ -2,37 +2,59 @@
 session_start();
 require_once 'config/db.php';
 
-if (!isset($_GET['id_p'])) {
+if (!isset($_SESSION['id']) || !isset($_GET['id_p'])) {
     header("Location: index.php");
     exit;
 }
 
 $pedido_id = intval($_GET['id_p']);
-$total_final = isset($_GET['total']) ? floatval($_GET['total']) : 0;
+$usuario_id = $_SESSION['id'];
+
+// Obtener el pedido y verificar que pertenece al usuario autenticado (control de acceso IDOR)
+$stmt_pedido = $pdo->prepare("SELECT * FROM pedidos WHERE id = ? AND usuario_id = ?");
+$stmt_pedido->execute([$pedido_id, $usuario_id]);
+$pedido = $stmt_pedido->fetch();
+
+if (!$pedido) {
+    header("Location: mis_pedidos.php");
+    exit;
+}
+
+$total_final = isset($_GET['total']) ? floatval($_GET['total']) : floatval($pedido['coste']);
 $coste_envio = isset($_GET['envio']) ? floatval($_GET['envio']) : 4.95;
-$dir = isset($_GET['d']) ? urldecode($_GET['d']) : '';
-$loc = isset($_GET['l']) ? urldecode($_GET['l']) : '';
+$dir = isset($_GET['d']) ? urldecode($_GET['d']) : $pedido['direccion'];
+$loc = isset($_GET['l']) ? urldecode($_GET['l']) : $pedido['localidad'];
 
-try {
-    // Confirmar pedido
-    $pdo->prepare("UPDATE pedidos SET estado = 'Confirmado' WHERE id = ?")->execute([$pedido_id]);
+// Solo confirmamos y descontamos stock si el pedido está 'Pendiente' (evita doble decremento por recarga F5)
+if ($pedido['estado'] === 'Pendiente') {
+    try {
+        $pdo->beginTransaction();
 
-    // Descontar stock de los productos comprados
-    $stmt_items = $pdo->prepare("SELECT producto_id, unidades FROM lineas_pedidos WHERE pedido_id = ?");
-    $stmt_items->execute([$pedido_id]);
-    $items = $stmt_items->fetchAll();
+        // Confirmar pedido
+        $pdo->prepare("UPDATE pedidos SET estado = 'Confirmado' WHERE id = ?")->execute([$pedido_id]);
 
-    foreach ($items as $item) {
-        $pdo->prepare("UPDATE productos SET stock = stock - ? WHERE id = ?")
-            ->execute([$item['unidades'], $item['producto_id']]);
+        // Descontar stock de forma segura
+        $stmt_items = $pdo->prepare("SELECT producto_id, unidades FROM lineas_pedidos WHERE pedido_id = ?");
+        $stmt_items->execute([$pedido_id]);
+        $items = $stmt_items->fetchAll();
+
+        $stmt_stock = $pdo->prepare("UPDATE productos SET stock = GREATEST(0, stock - ?) WHERE id = ?");
+        foreach ($items as $item) {
+            $stmt_stock->execute([$item['unidades'], $item['producto_id']]);
+        }
+
+        $pdo->commit();
+
+        // Limpiar carrito
+        unset($_SESSION['carrito']);
+        unset($_SESSION['datos_envio_temp']);
+
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log("Error en exito.php: " . $e->getMessage());
     }
-
-    // Limpiar carrito
-    unset($_SESSION['carrito']);
-    unset($_SESSION['datos_envio_temp']);
-
-} catch (Exception $e) {
-    error_log("Error en exito.php: " . $e->getMessage());
 }
 
 require_once 'views/header.php';
