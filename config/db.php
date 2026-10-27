@@ -1,10 +1,25 @@
 <?php
 date_default_timezone_set('Europe/Madrid');
 
-$host = 'localhost';
-$db   = 'tienda_online'; 
-$user = 'root';         
-$pass = '';             
+// Detección automática de entorno: Producción (Alwaysdata) vs Localhost (XAMPP)
+$is_alwaysdata = (
+    (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'alwaysdata.net') !== false) ||
+    (isset($_SERVER['SERVER_NAME']) && strpos($_SERVER['SERVER_NAME'], 'alwaysdata.net') !== false) ||
+    is_dir('/home/mundocanario')
+);
+
+if ($is_alwaysdata) {
+    $host = 'mysql-mundocanario.alwaysdata.net';
+    $db   = 'mundocanario_tienda';
+    $user = 'mundocanario';
+    $pass = 'MundoCanario2027*!';
+} else {
+    $host = 'localhost';
+    $db   = 'tienda_online'; 
+    $user = 'root';         
+    $pass = '';             
+}
+
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
