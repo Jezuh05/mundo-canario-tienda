@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if ($usuario['activo'] == 0) {
                 $error = "Esta cuenta ha sido desactivada. Contacta con soporte.";
             } else {
+                session_regenerate_id(true);
                 $_SESSION['id'] = $usuario['id'];
                 $_SESSION['nombre'] = $usuario['nombre'];
                 $_SESSION['rol'] = $usuario['rol'];
